@@ -1,0 +1,11 @@
+.venv/
+.env
+.streamlit/secrets.toml
+__pycache__/
+.pytest_cache/
+.ipynb_checkpoints/
+*.db
+mlruns/
+mlartifacts/
+artifacts/
+.DS_Store
