@@ -1,4 +1,4 @@
-# GraphRAG Playground
+# GraphRAG Playground · v1.0
 
 Created by **Carlos Falconi**, with AI assistance. A small learning application for building a movie graph, asking grounded questions, and inspecting real execution traces.
 

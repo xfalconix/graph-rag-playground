@@ -18,6 +18,7 @@ from models import MovieGraph
 from observability import ask_with_tracking, configure_tracking, read_operations, save_graph_with_tracking
 from sample_data import SAMPLE_GRAPH, SAMPLE_QUESTIONS
 from workflow import GroqResponder, build_workflow
+from version import APP_VERSION
 
 
 # 1. Read configuration on the server. Secrets never enter the browser or Git.
@@ -31,7 +32,7 @@ except FileNotFoundError:
 
 st.set_page_config(page_title="GraphRAG Playground", page_icon="🕸️", layout="wide")
 st.title("GraphRAG Playground")
-st.caption("Created by Carlos Falconi · An educational GraphRAG and LLMOps app, developed with AI assistance.")
+st.caption(f"Version {APP_VERSION} · Created by Carlos Falconi · An educational GraphRAG and LLMOps app.")
 with st.expander("About this learning app"):
     st.write("Build a small movie graph and see how an answer follows its relationships and evidence.")
     st.markdown("**Streamlit** hosts the interface and Python app. **Neo4j Aura** stores the graph. "

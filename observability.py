@@ -11,6 +11,7 @@ import pandas as pd
 
 from graph_store import graph_fingerprint
 from workflow import PROMPT_VERSION
+from version import APP_VERSION
 
 
 @lru_cache(maxsize=1)
@@ -41,7 +42,7 @@ def common_tags(session_id: str, operation: str) -> dict:
         "session_id": session_id,
         "operation": operation,
         "traffic_type": os.getenv("TRAFFIC_TYPE", "demo"),
-        "app_version": os.getenv("APP_VERSION", "0.1.0"),
+        "app_version": APP_VERSION,
         "prompt_version": PROMPT_VERSION,
         "model": os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"),
         "git_commit": source_revision(),
