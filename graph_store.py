@@ -4,6 +4,8 @@ import hashlib
 import json
 import uuid
 
+from usage_limits import GRAPH_TTL_HOURS
+
 import mlflow
 from neo4j import GraphDatabase, Query, unit_of_work
 
@@ -68,8 +70,9 @@ class Neo4jStore:
     def _write_snapshot(transaction, graph_id: str, graph: MovieGraph):
         transaction.run("""
             UNWIND $entities AS entity
-            CREATE (:GRPlayEntity {graph_id: $graph_id, name: entity.name, kind: entity.kind})
-        """, graph_id=graph_id, entities=[entity.model_dump() for entity in graph.entities]).consume()
+            CREATE (:GRPlayEntity {graph_id: $graph_id, name: entity.name, kind: entity.kind,
+                created_at: datetime(), expires_at: datetime() + duration({hours: $ttl})})
+        """, graph_id=graph_id, ttl=GRAPH_TTL_HOURS, entities=[entity.model_dump() for entity in graph.entities]).consume()
         for relation_type in ("DIRECTED", "ACTED_IN", "IN_GENRE"):
             relations = [relation.model_dump() for relation in graph.relations if relation.relation == relation_type]
             # Only the fixed allowlist above can enter this query string.
@@ -92,6 +95,34 @@ class Neo4jStore:
                 second_name=plan.second_name,
             ).data()
         return [{"id": f"F{index + 1}", **record} for index, record in enumerate(records)]
+
+    def graph_exists(self, graph_id: str) -> bool:
+        with self.driver.session(database=self.database) as session:
+            return session.run("MATCH (n:GRPlayEntity {graph_id: $graph_id}) "
+                               "WHERE n.expires_at IS NULL OR n.expires_at > datetime() "
+                               "RETURN count(n) > 0 AS present", graph_id=graph_id).single()["present"]
+
+    def cleanup_expired(self) -> int:
+        """Delete at most 1,000 expired demo nodes, never unrelated labels/data.
+
+        Called on activity, not by a scheduler. Sleeping apps clean up next time.
+        Legacy snapshots get one day of grace instead of immediate deletion.
+        """
+        with self.driver.session(database=self.database) as session:
+            session.run("MATCH (n:GRPlayEntity) WHERE n.expires_at IS NULL "
+                        "SET n.expires_at = datetime() + duration({hours: $ttl})",
+                        ttl=GRAPH_TTL_HOURS).consume()
+            result = session.run("""
+                MATCH (n:GRPlayEntity) WHERE n.expires_at <= datetime()
+                AND NOT EXISTS {
+                    MATCH (n)--(other)
+                    WHERE NOT other:GRPlayEntity OR other.graph_id <> n.graph_id
+                }
+                WITH n LIMIT 1000
+                DETACH DELETE n
+                RETURN count(*) AS removed
+            """)
+            return result.single()["removed"]
 
     def close(self):
         self.driver.close()

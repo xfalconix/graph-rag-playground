@@ -14,6 +14,7 @@ from graph_store import Neo4jStore
 from observability import ask_with_tracking, configure_tracking, read_operations, save_graph_with_tracking
 from sample_data import SAMPLE_GRAPH
 from workflow import GroqResponder, build_workflow
+from usage_limits import UsageBudget
 
 
 def main():
@@ -24,12 +25,15 @@ def main():
     store = Neo4jStore(os.environ["NEO4J_URI"], os.environ["NEO4J_USERNAME"],
                       os.environ["NEO4J_PASSWORD"], os.getenv("NEO4J_DATABASE", "neo4j"))
     try:
+        budget = UsageBudget(store)
+        budget.claim("save", session_id)
         graph_id = save_graph_with_tracking(store, SAMPLE_GRAPH, session_id)
-        responder = GroqResponder(os.environ["GROQ_API_KEY"], os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"))
+        responder = GroqResponder(os.environ["GROQ_API_KEY"], os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"), budget)
         workflow = build_workflow(store, responder)
         entities = [entity.model_dump() for entity in SAMPLE_GRAPH.entities]
 
         # A two-hop question must retrieve both movie relationships for Tom Hardy.
+        budget.claim("question", session_id)
         answer = ask_with_tracking(workflow,
             "Who acted in both Inception and The Dark Knight Rises?",
             graph_id, entities, session_id)
@@ -39,6 +43,7 @@ def main():
         assert "Tom Hardy" in answer["answer"], "The answer omitted the known shared actor."
 
         # An absent entity must not be answered using the LLM's general knowledge.
+        budget.claim("question", session_id)
         absent = ask_with_tracking(workflow, "Who acted in Titanic?", graph_id, entities, session_id)
         assert absent["status"] == "abstained", "Expected abstention for an absent movie."
 

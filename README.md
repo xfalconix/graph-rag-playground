@@ -1,6 +1,6 @@
 # GraphRAG Playground
 
-A small learning application for building a movie graph, asking grounded questions, and inspecting real execution traces.
+Created by **Carlos Falconi**, with AI assistance. A small learning application for building a movie graph, asking grounded questions, and inspecting real execution traces.
 
 **Streamlit → LangGraph → Neo4j + Groq → MLflow**
 
@@ -48,6 +48,7 @@ The app was developed with AI assistance. Its execution, limitations and test re
 | `graph_store.py` | Session-scoped Neo4j writes and fixed reads |
 | `workflow.py` | LangGraph routing and grounded generation |
 | `observability.py` | MLflow runs, traces and dashboard queries |
+| `usage_limits.py` | Persistent, atomic Groq budgets and per-session limits |
 | `app.py` | Three-tab interface |
 
 ## Deployment
@@ -62,9 +63,21 @@ Databricks Apps is an alternative for authenticated demonstrations, subject to F
 - Evidence IDs make an answer inspectable; they do not prove factual correctness. Evaluate answers against known cases.
 - Only four question types are supported. This is a bounded workflow, not a general agent.
 - The operations tab reads persisted MLflow runs for the current session. A new browser session has a new ID; earlier runs remain in MLflow.
-- Graph snapshots use the `GRPlayEntity` label and opaque graph IDs. Existing database data is not modified. Snapshots are retained; this prototype has no automated cleanup or production tenancy guarantees.
+- Graph snapshots use the `GRPlayEntity` label and opaque graph IDs. Existing database data is not modified. Snapshots expire after 24 hours. Cleanup runs on save/question activity, not on a schedule; a sleeping app cleans up when next used. Legacy snapshots get 24 hours of grace. Only isolated `GRPlayEntity` nodes are deleted. MLflow history is retained separately; this is not a production tenancy guarantee.
 - The history represents demo/test traffic, not sustained production usage. MLflow tracks operations; it does not measure uptime while the app is asleep.
 - API keys and limits belong to the configured service accounts. The frontend never receives those credentials.
+
+## Public-demo usage controls
+
+- 10 question attempts and 3 graph saves per browser session. Reopening the browser can create a new session; this is not an authenticated per-person quota.
+- Shared Groq limits for `openai/gpt-oss-120b`: 30 calls/minute, 1,000/day, 8,000 tokens/minute, 200,000/day. There is **no monthly cap**. One question makes one or two model calls.
+- A unique Neo4j control node and write transaction serialize reservations across users and restarts. Rolling 60-second and 24-hour windows avoid midnight bursts. Failed attempts count.
+- Each LLM call first reserves an intentionally conservative UTF-8 input estimate plus maximum output and a formatting margin. Provider-reported tokens replace it after a response. Ambiguous failures retain their reservation. Automatic LLM retries are disabled.
+- Groq is authoritative: other apps share the organization's quota, token estimates differ from exact accounting, and a 429 can still occur. The app explains the temporary refusal. No LLM call is made if the budget store is unavailable.
+- Graph saves have a separate shared cap of 100 per rolling day to bound storage growth. The control ledger is separate from expiring graph snapshots.
+- Questions, supplied facts and answers are recorded in the owner's Databricks experiment. Only public/fictitious inputs are appropriate. Removing a graph does not erase existing traces.
+
+Limits were verified in the account on 2026-10-09 and in [Groq's official limits](https://console.groq.com/docs/rate-limits). Databricks supplies managed MLflow tracking here; it does not run this Streamlit application, host Groq, or train a model. Experiment-backed tracing currently has a [100,000-trace limit](https://docs.databricks.com/aws/en/resources/limits), distinct from the 500,000-run limit.
 
 ## Validation
 
@@ -73,7 +86,9 @@ pip install -r requirements-dev.txt
 pytest -q
 ```
 
-Tests cover input limits, invalid relationships, unknown entities, evidence validation, abstention, run persistence and interface startup. Live service checks and an end-to-end question must also pass before deployment is considered verified.
+Tests cover input limits, invalid relationships, unknown entities, evidence validation, abstention, run persistence, interface startup, session limits, rolling windows and refusal before an LLM call. Live service checks and an end-to-end question must also pass before deployment is considered verified.
+
+`python scripts/check_limits.py` checks concurrent reservations and scoped expiry against Neo4j using temporary verification records. It preserves unrelated data.
 
 `check_pipeline.py` makes real Groq calls and writes a small Neo4j snapshot. It checks a shared actor question, an abstention, and read-back of MLflow runs/traces. It labels this traffic `live_check`; these two smoke checks are not an accuracy benchmark. Runs also record the prompt version, model, app version, and Git revision (or the optional `GIT_COMMIT` setting).
 
