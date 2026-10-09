@@ -158,7 +158,8 @@ with operations_tab:
         third.metric("Failed questions", int(errors.sum()))
         if len(duration):
             chart = queries[["start_time", "metrics.duration_seconds"]].dropna().rename(columns={"metrics.duration_seconds": "Seconds"})
-            st.line_chart(chart.set_index("start_time")["Seconds"])
+            # Each point is one real request; a single request remains visible.
+            st.scatter_chart(chart.set_index("start_time")["Seconds"])
         wanted = ["start_time", "tags.operation", "tags.result", "metrics.duration_seconds", "metrics.fact_count", "tags.trace_id"]
         st.dataframe(operations[[column for column in wanted if column in operations]], hide_index=True, width="stretch")
         st.caption("Open the MLflow experiment to inspect nested traces and token usage where available.")
