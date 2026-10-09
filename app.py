@@ -62,7 +62,7 @@ def draw_graph(graph: MovieGraph):
                  fillcolor=colors[entity.kind], color="#B0BCC5", fontname="Arial")
     for relation in graph.relations:
         dot.edge(relation.source, relation.target, label=relation.relation, fontname="Arial", fontsize="10")
-    st.graphviz_chart(dot, use_container_width=True)
+    st.graphviz_chart(dot, width="stretch")
 
 
 required = ["NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD", "GROQ_API_KEY"]
@@ -84,10 +84,10 @@ with create_tab:
     st.subheader("Entities and relationships")
     with st.form("graph_form"):
         entities = st.data_editor(pd.DataFrame([entity.model_dump() for entity in SAMPLE_GRAPH.entities]),
-            num_rows="dynamic", hide_index=True, key="entity_editor", use_container_width=True,
+            num_rows="dynamic", hide_index=True, key="entity_editor", width="stretch",
             column_config={"kind": st.column_config.SelectboxColumn("Type", options=["Person", "Movie", "Genre"], required=True)})
         relations = st.data_editor(pd.DataFrame([relation.model_dump() for relation in SAMPLE_GRAPH.relations]),
-            num_rows="dynamic", hide_index=True, key="relation_editor", use_container_width=True,
+            num_rows="dynamic", hide_index=True, key="relation_editor", width="stretch",
             column_config={"relation": st.column_config.SelectboxColumn("Relationship", options=["DIRECTED", "ACTED_IN", "IN_GENRE"], required=True)})
         submitted = st.form_submit_button("Save graph", type="primary", disabled=bool(missing))
     if submitted:
@@ -133,7 +133,7 @@ with ask_tab:
         result = st.session_state.last_result
         st.write(result["answer"])
         if result["facts"]:
-            st.dataframe(pd.DataFrame(result["facts"]), hide_index=True, use_container_width=True)
+            st.dataframe(pd.DataFrame(result["facts"]), hide_index=True, width="stretch")
         st.caption("Result: " + result["status"] + " · Trace: " + result["trace_id"])
 
 # 4. Read persisted MLflow runs instead of inventing dashboard data.
@@ -160,5 +160,5 @@ with operations_tab:
             chart = queries[["start_time", "metrics.duration_seconds"]].dropna().rename(columns={"metrics.duration_seconds": "Seconds"})
             st.line_chart(chart.set_index("start_time")["Seconds"])
         wanted = ["start_time", "tags.operation", "tags.result", "metrics.duration_seconds", "metrics.fact_count", "tags.trace_id"]
-        st.dataframe(operations[[column for column in wanted if column in operations]], hide_index=True, use_container_width=True)
+        st.dataframe(operations[[column for column in wanted if column in operations]], hide_index=True, width="stretch")
         st.caption("Open the MLflow experiment to inspect nested traces and token usage where available.")
