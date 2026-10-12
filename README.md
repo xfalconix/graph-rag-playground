@@ -1,8 +1,10 @@
 # GraphRAG Playground · v1.0
 
-Created by **Carlos Falconi**, with AI assistance. A small learning application for building a movie graph, asking grounded questions, and inspecting real execution traces.
+Created by **Carlos Falconi**. A small learning application for building a movie graph, asking grounded questions, and inspecting real execution traces.
 
 **Streamlit → LangGraph → Neo4j + Groq → MLflow**
+
+[Open the public demo](https://graph-rag-playground.streamlit.app/)
 
 ## What the demo does
 
@@ -37,7 +39,7 @@ mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
 
 Open `notebooks/01_graph_rag_walkthrough.ipynb`. It follows the same small functions as the app: data → validation → graph storage → retrieval → LangGraph → answer → MLflow.
 
-The app was developed with AI assistance. Its execution, limitations and test results should be distinguished from independent authorship or production experience.
+This is a learning prototype. The walkthrough explains the implementation; the checks document its behavior without claiming production reliability.
 
 ## Files
 
